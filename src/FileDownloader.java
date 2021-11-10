@@ -2,6 +2,10 @@ import javax.swing.*;
 import java.io.*;
 import java.net.*;
 import java.nio.Buffer;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Paths;
 
 public class FileDownloader {
 
@@ -59,6 +63,10 @@ public class FileDownloader {
             writer.print("\r\n");
             writer.flush();
 
+            String pathname = (Paths.get("").toAbsolutePath()).toString() + "\\" + args[0].substring(args[0].lastIndexOf("/") + 1);
+            File f = new File(pathname);
+            f.createNewFile();
+
             BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             String line;
             String response = "";
@@ -75,6 +83,26 @@ public class FileDownloader {
                 System.exit(0);
             }
 
+
+
+
+            try (BufferedInputStream in = new BufferedInputStream(new URL(args[0]).openStream());
+                 FileOutputStream fileOutputStream = new FileOutputStream(args[0].substring(args[0].lastIndexOf("/") + 1))) {
+                byte dataBuffer[] = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
+                    fileOutputStream.write(dataBuffer, 0, bytesRead);
+                }
+                fileOutputStream.flush();
+                //fileOutputStream.close();
+                //in.close();
+
+            } catch (IOException e) {
+                // handle exception
+            }
+
+
+            socket.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
