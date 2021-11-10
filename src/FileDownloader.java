@@ -40,18 +40,17 @@ public class FileDownloader {
             System.out.println("Argument error!");
         }
 
-        String host = "";
-        String directory = "";
-        int first_slash_index = index_file.indexOf('/');
-        host = index_file.substring(0, first_slash_index);
-        directory = index_file.substring(first_slash_index, index_file.length());
+        String host = getHost(index_file);
+        String directory = getDirectory(index_file);
+
         System.out.print("Directory: ");
         System.out.println(directory);
+        System.out.print("Host: ");
+        System.out.println(host);
 
         try {
             Socket socket = new Socket(host, 80);
             System.out.println(InetAddress.getByName(host));
-            System.out.println(host);
 
             PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
             writer.print("GET " + directory + " HTTP/1.1\r\n");
@@ -63,52 +62,97 @@ public class FileDownloader {
             writer.print("\r\n");
             writer.flush();
 
-            String pathname = (Paths.get("").toAbsolutePath()).toString() + "\\" + args[0].substring(args[0].lastIndexOf("/") + 1);
-            File f = new File(pathname);
-            f.createNewFile();
-
             BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             String line;
             String response = "";
+            String txt_file_arr[] = new String[8192];
+            int txt_file_arr_index = 0;
             while ((line = br.readLine()) != null) {
                 response = response + line + "\n";
-            }
-            System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++");
-            System.out.println(response);
-            System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++");
+                if (line.startsWith("www")) {
+                    txt_file_arr[txt_file_arr_index] = line;
+                    txt_file_arr_index++;
 
+                }
+            }
             if(!response.substring(9,12).equals("200")) {
                 System.out.println("Index file is not found. The message is other than 200 OK!");
                 System.out.println("System exits...");
                 System.exit(0);
             }
 
+            //WRITE CONSOLE TO SHOW-------------------------------------------------------------
+            System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            System.out.println("RESPONSE OF INDEX FILE: ");
+            System.out.println(response);
+            System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++");
+
+            System.out.println("TXT_FILE_ARR: ");
+            for(int i = 0; i < txt_file_arr_index; i++) {
+                System.out.print(i);
+                System.out.print(". index: ");
+                System.out.println(txt_file_arr[i]);
+            }
+            System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            //WRITE CONSOLE TO SHOW-------------------------------------------------------------
 
 
+            String pathname = (Paths.get("").toAbsolutePath()).toString() + "\\" + args[0].substring(args[0].lastIndexOf("/") + 1);
+            File f = new File(pathname);
+            f.createNewFile();
 
-            try (BufferedInputStream in = new BufferedInputStream(new URL(args[0]).openStream());
-                 FileOutputStream fileOutputStream = new FileOutputStream(args[0].substring(args[0].lastIndexOf("/") + 1))) {
+
+            String yourURLStr = "http://"+args[0];
+            java.net.URL myURL = new java.net.URL (yourURLStr);
+            InputStream inStream = myURL.openStream();
+            try (BufferedInputStream in = new BufferedInputStream(inStream);
+                 FileOutputStream fileOutputStream = new FileOutputStream(f)) {
                 byte dataBuffer[] = new byte[1024];
                 int bytesRead;
                 while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
                     fileOutputStream.write(dataBuffer, 0, bytesRead);
                 }
                 fileOutputStream.flush();
-                //fileOutputStream.close();
-                //in.close();
+                fileOutputStream.close();
+                inStream.close();
+                in.close();
 
             } catch (IOException e) {
                 // handle exception
             }
 
 
+            /*
+
+            ReadableByteChannel readableByteChannel = Channels.newChannel(url.openStream());
+
+            FileOutputStream fileOutputStream = new FileOutputStream(FILE_NAME);
+            FileChannel fileChannel = fileOutputStream.getChannel();
+
+            fileOutputStream.getChannel()
+                    .transferFrom(readableByteChannel, 0, Long.MAX_VALUE);
+
+
+
+             */
             socket.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+    }
+    public static String getHost(String url){
+        String host = "";
+        int first_slash_index = url.indexOf('/');
+        host = url.substring(0, first_slash_index);
+        return host;
+    }
 
-
+    public static String getDirectory(String url){
+        String directory = "";
+        int first_slash_index = url.indexOf('/');
+        directory = url.substring(first_slash_index, url.length());
+        return directory;
     }
 
 }
