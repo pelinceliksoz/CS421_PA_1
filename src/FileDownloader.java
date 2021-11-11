@@ -6,6 +6,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 
 public class FileDownloader {
 
@@ -163,13 +164,15 @@ public class FileDownloader {
         String line;
         String response_head = "";
         String response_body = "";
-        int responseBodyLineCount = 0;
+        ArrayList<Integer> responseBodyLineCount = new ArrayList<>();
+        int charCount = 0;
         boolean afterContentType = false, firstLineDeleted = true;
         while ((line = bufferedReader.readLine()) != null) {
             if (afterContentType) {
                 if(!firstLineDeleted) {
+                    charCount += line.length();
                     response_body = response_body + line + "\n";
-                    responseBodyLineCount++;
+                    responseBodyLineCount.add(charCount);
                 }
                 else{
                     firstLineDeleted = false;
@@ -193,7 +196,7 @@ public class FileDownloader {
     }
 
     public static void downloadFile(String url, String response_head, String response_body,
-                                    String lower_Bound, String upper_Bound, int lines) throws IOException {
+                                    String lower_Bound, String upper_Bound, ArrayList<Integer> lines) throws IOException {
 
         String sizeStr = response_head.substring(
                 (response_head.indexOf("Content-Length") + 16), ((response_head.indexOf("Connection") - 1)));
@@ -220,6 +223,17 @@ public class FileDownloader {
             availableMax = size;
         }
 
+        // Calculate the excluded line count
+        int lineCount = 0;
+        for(int i = 0; i < lines.size(); i++){
+            if(lines.get(i) > startIndex && lines.get(i) < endIndex){
+                lineCount++;
+            }
+            if(lines.get(i) > endIndex){
+                break;
+            }
+        }
+
         // Get the target path --> directory of the main class
         String pathname = (Paths.get("").toAbsolutePath()).toString() + "\\" + url.substring(url.lastIndexOf("/") + 1);
         // Create a file named the same at the given directory
@@ -230,7 +244,7 @@ public class FileDownloader {
         // Download
         try{
             FileWriter fw = new FileWriter(pathname);
-            fw.write(response_body.substring(startIndex, (availableMax - lines)));
+            fw.write(response_body.substring(startIndex, (availableMax - (lineCount * 2))));
             fw.close();
         }catch(Exception e){
             System.out.println(e);
