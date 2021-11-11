@@ -43,14 +43,8 @@ public class FileDownloader {
         String host = getHost(index_file);
         String directory = getDirectory(index_file);
 
-        System.out.print("Directory: ");
-        System.out.println(directory);
-        System.out.print("Host: ");
-        System.out.println(host);
-
         try {
             Socket socket = new Socket(host, 80);
-            System.out.println(InetAddress.getByName(host));
 
             PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
             writer.print("GET " + directory + " HTTP/1.1\r\n");
@@ -75,32 +69,40 @@ public class FileDownloader {
 
                 }
             }
+            System.out.print("There are ");
+            System.out.print(txt_file_arr_index);
+            System.out.println(" files in the index");
+
+
+
+            for(int i = 0; i < txt_file_arr_index; i++) {
+                System.out.print(i+1);
+                System.out.print(". ");
+                System.out.print(txt_file_arr[i]);
+                if(isFileFound(txt_file_arr[i]) == false) {
+                    System.out.println(" is not found");
+                }
+                else {
+                    System.out.print(" ");
+                    getTextContent(txt_file_arr[i], lower_endpoint, upper_endpoint);
+                }
+
+            }
+
+
             if(!response.substring(9,12).equals("200")) {
                 System.out.println("Index file is not found. The message is other than 200 OK!");
                 System.out.println("System exits...");
                 System.exit(0);
             }
 
-            //WRITE CONSOLE TO SHOW-------------------------------------------------------------
-            System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++");
-            System.out.println("RESPONSE OF INDEX FILE: ");
-            System.out.println(response);
-            System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            //BURASI
+            //System.out.println(getTextBodyContent(txt_file_arr[3]));
 
-            System.out.println("TXT_FILE_ARR: ");
-            for(int i = 0; i < txt_file_arr_index; i++) {
-                System.out.print(i);
-                System.out.print(". index: ");
-                System.out.println(txt_file_arr[i]);
-            }
-            System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++");
-            //WRITE CONSOLE TO SHOW-------------------------------------------------------------
-
-
+            //FILE
             String pathname = (Paths.get("").toAbsolutePath()).toString() + "\\" + args[0].substring(args[0].lastIndexOf("/") + 1);
             File f = new File(pathname);
             f.createNewFile();
-
 
             String yourURLStr = "http://"+args[0];
             java.net.URL myURL = new java.net.URL (yourURLStr);
@@ -120,25 +122,11 @@ public class FileDownloader {
             } catch (IOException e) {
                 // handle exception
             }
-
-
-            /*
-
-            ReadableByteChannel readableByteChannel = Channels.newChannel(url.openStream());
-
-            FileOutputStream fileOutputStream = new FileOutputStream(FILE_NAME);
-            FileChannel fileChannel = fileOutputStream.getChannel();
-
-            fileOutputStream.getChannel()
-                    .transferFrom(readableByteChannel, 0, Long.MAX_VALUE);
-
-
-
-             */
             socket.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
+
 
     }
     public static String getHost(String url){
@@ -155,4 +143,141 @@ public class FileDownloader {
         return directory;
     }
 
+    public static void getTextContent(String url, String lowerBound, String upperBound) throws IOException {
+        String host = getHost(url);
+        String dir = getDirectory(url);
+
+        Socket s = new Socket(host, 80);
+
+        PrintWriter pw = new PrintWriter(s.getOutputStream(), true);
+        pw.print("GET " + dir + " HTTP/1.1\r\n");
+        pw.print("Host: " + host +"\r\n");
+        pw.print("User-Agent: Simple Http Client\r\n");
+        pw.print("Accept: text/html\r\n");
+        pw.print("Accept-Language: en-US\r\n");
+        pw.print("Connection: close\r\n");
+        pw.print("\r\n");
+        pw.flush();
+
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(s.getInputStream()));
+        String line;
+        String response_head = "";
+        String response_body = "";
+        int responseBodyLineCount = 0;
+        boolean afterContentType = false, firstLineDeleted = true;
+        while ((line = bufferedReader.readLine()) != null) {
+            if (afterContentType) {
+                if(!firstLineDeleted) {
+                    response_body = response_body + line + "\n";
+                    responseBodyLineCount++;
+                }
+                else{
+                    firstLineDeleted = false;
+                }
+            }
+            else{
+                response_head += line+ "\n";
+
+                if(line.startsWith("Content-Type")) {
+                    afterContentType = true;
+                }
+            }
+        }
+        if(!response_head.substring(9,12).equals("200")) {
+            System.out.println("Index file is not found. The message is other than 200 OK!");
+            System.out.println("System exits...");
+            //System.exit(0);
+        }
+
+        downloadFile(url, response_head, response_body, lowerBound, upperBound, responseBodyLineCount);
+    }
+
+    public static void downloadFile(String url, String response_head, String response_body,
+                                    String lower_Bound, String upper_Bound, int lines) throws IOException {
+
+        String sizeStr = response_head.substring(
+                (response_head.indexOf("Content-Length") + 16), ((response_head.indexOf("Connection") - 1)));
+        //System.out.println(sizeStr);
+        int size = Integer.valueOf(sizeStr);
+        //System.out.println("sizze: "+size);
+
+        // Check whether the size is higher than lower bound
+        // Bytes to be read determined by upper and lower bound
+        int startIndex = 0;
+        if(lower_Bound != null)
+            startIndex = Integer.parseInt(lower_Bound);
+        int endIndex = size;
+        if(upper_Bound != null)
+            endIndex = Integer.parseInt(upper_Bound);
+        //System.out.println("size = " + size);
+        if(size < startIndex){
+            System.out.println("(size = " + size + ") is not downloaded");
+            return;
+        }
+
+        int availableMax = endIndex;
+        if(size < endIndex){
+            availableMax = size;
+        }
+
+        // Get the target path --> directory of the main class
+        String pathname = (Paths.get("").toAbsolutePath()).toString() + "\\" + url.substring(url.lastIndexOf("/") + 1);
+        // Create a file named the same at the given directory
+        File f = new File(pathname);
+        f.createNewFile();
+
+        // If it exceeds the lower bound, then download-
+        // Download
+        try{
+            FileWriter fw = new FileWriter(pathname);
+            fw.write(response_body.substring(startIndex, (availableMax - lines)));
+            fw.close();
+        }catch(Exception e){
+            System.out.println(e);
+        }
+
+        // Notification
+        if(upper_Bound == null) {
+            System.out.println("(size = " + size + ") is downloaded");
+        }
+        else{
+            int maximum = size;
+
+            if(Integer.parseInt(upper_Bound) < size){
+                maximum = Integer.parseInt(upper_Bound);
+            }
+
+            System.out.println("(range = " + startIndex + "-" + maximum + ") is downloaded");
+        }
+
+    }
+
+    public static boolean isFileFound(String url) throws IOException {
+        String host = getHost(url);
+        String dir = getDirectory(url);
+
+        Socket s = new Socket(host, 80);
+
+        PrintWriter pw = new PrintWriter(s.getOutputStream(), true);
+        pw.print("HEAD " + dir + " HTTP/1.1\r\n");
+        pw.print("Host: " + host +"\r\n");
+        pw.print("User-Agent: Simple Http Client\r\n");
+        pw.print("Accept: text/html\r\n");
+        pw.print("Accept-Language: en-US\r\n");
+        pw.print("Connection: close\r\n");
+        pw.print("\r\n");
+        pw.flush();
+
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(s.getInputStream()));
+        String line;
+        String response = "";
+        while ((line = bufferedReader.readLine()) != null) {
+            response = response + line + "\n";
+        }
+        if(!response.substring(9,12).equals("200")) {
+            //HEAD reponse is other than 200 OK.
+            return false;
+        }
+        return true;
+    }
 }
